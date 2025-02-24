@@ -1,5 +1,6 @@
 let source = null;
 let sender = null;
+let receiver = null
 const host = window.location.hostname;
 
 function login(uname) {
@@ -37,9 +38,15 @@ function closeSse() {
     setMessageInnerHTML("登出成功");
 }
 
-function connectWithUser(receiver) {
-    $.post(`http://' + host +':8080/user/connect?sender=${sender}&receiver=${receiver}`, ()=>{
-        setMessageInnerHTML(`开始与${receiver}的聊天`)
+function connectWithUser(receiver1) {
+    $.post(`http://${host}:8080/user/connect?sender=${sender}&receiver=${receiver1}`, (data)=>{
+        if (data === 'success') {
+            receiver = receiver1;
+            setMessageInnerHTML(`开始与${receiver}的聊天`);
+        } else {
+            setMessageInnerHTML(`连接失败`);
+        }
+
     });
 }
 
@@ -52,7 +59,7 @@ function listUsers() {
 function sendMessage(content) {
     $.ajax('http://' + host +':8080/message/send', {
         type: 'post',
-        data: JSON.stringify({sender: sender, content: content}),
+        data: JSON.stringify({sender: sender, content: content, receiver: receiver}),
         contentType: 'application/json;charset=UTF-8'
     });
 }

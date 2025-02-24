@@ -1,35 +1,27 @@
 package cn.edu.xmu.chatroom.util;
 
-import lombok.AllArgsConstructor;
+import cn.edu.xmu.chatroom.model.Message;
 import lombok.RequiredArgsConstructor;
-import org.springframework.amqp.core.BindingBuilder;
-import org.springframework.amqp.core.DirectExchange;
-import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
 public class RabbitMQUtils {
-    @Autowired
-    private RabbitTemplate rabbitTemplate;
-    @Autowired
-    private RabbitAdmin rabbitAdmin;
-    @Autowired
-    private DirectExchange directExchange;
+    private final RabbitTemplate rabbitTemplate;
+    private final RabbitAdmin rabbitAdmin;
 
-    public void sendMessage(String queueName, String message) {
-        String DIRECT_EXCHANGE = "direct.exchange";
-        rabbitTemplate.convertAndSend(DIRECT_EXCHANGE, queueName, message);
+    private static final String DIRECT_EXCHANGE = "direct_exchange";
+    private static final String DIRECT_ROUTING = "direct_message";
+
+    public void sendMessage(Message message) {
+        rabbitTemplate.convertAndSend(DIRECT_EXCHANGE, DIRECT_ROUTING, message);
     }
 
-    public void createQueueWithBinding(String queueName) {
-        rabbitAdmin.declareBinding(BindingBuilder.bind(new Queue(queueName)).to(directExchange).with(queueName));
-    }
-
-    public void removeQueue(String queueName) {
-        rabbitAdmin.deleteQueue(queueName);
+    @RabbitListener(queues = "direct_queue")
+    public void receiveMessage(Message message) {
+        SseEmitterServer.sendMessage(message.getReceiver(), message.getDetailMessage());
     }
 }

@@ -1,62 +1,50 @@
 package cn.edu.xmu.chatroom.controller;
 
-import cn.edu.xmu.chatroom.util.SseEmitterServer;
-import cn.edu.xmu.chatroom.model.ChatRoom;
-import cn.edu.xmu.chatroom.model.User;
+import cn.edu.xmu.chatroom.model.Message;
 import cn.edu.xmu.chatroom.service.ChatService;
-import org.springframework.beans.factory.annotation.Autowired;
+import cn.edu.xmu.chatroom.util.RabbitMQUtils;
+import cn.edu.xmu.chatroom.util.SseEmitterServer;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.ArrayList;
-import java.util.Optional;
 
-
+@RequiredArgsConstructor
 @RestController
-//todo need @CrossOrigin?
 public class ChatroomController {
-    ChatRoom chatRoom = new ChatRoom();
-    @Autowired
-    private ChatService chatService;
-
-    @GetMapping("/test/send")
-    Object testSend(@RequestParam String uname) {
-        SseEmitterServer.sendMessage(uname, "hello test");
-        return "success";
-    }
+    private final ChatService chatService;
+    private final RabbitMQUtils rabbitMQUtils;
 
     @GetMapping("/user/list")
     Object listUsers() {
-        return new ArrayList<>(chatRoom.getUserMap().keySet());
+        return new ArrayList<>(chatService.getUserSet());
     }
 
-
-
     @PostMapping("/user/connect")
-    void connectWithUser(@RequestParam String sender, @RequestParam String receiver) {
-
+    Object connectWithUser(@RequestParam String sender, @RequestParam String receiver) {
+        if (!chatService.getUserSet().contains(sender) || !chatService.getUserSet().contains(receiver)) {
+            return "fail";
+        }
+        return "success";
     }
 
     @GetMapping("/sse/connect")
     SseEmitter connect(@RequestParam String uname) {
-        Optional<User> user = Optional.ofNullable(chatRoom.getUserMap().get(uname));
-        if (user.isEmpty()) {
-            chatRoom.createUser(uname);
+        if (!chatService.getUserSet().contains(uname)) {
+            return chatService.createUser(uname);
         }
         return SseEmitterServer.connect(uname);
     }
 
     @PostMapping("/message/send")
-    Object sendMessage(@RequestBody org.xmu.chatroom.model.Message message) {
-        var userMap = chatRoom.getUserMap();
-        var sender = userMap.get(message.getSender());
-        sender.sendMessage(message.getContent());
+    Object sendMessage(@RequestBody Message message) {
+        rabbitMQUtils.sendMessage(message);
         return "success";
     }
 
     @GetMapping("/sse/close")
     void disconnect(@RequestParam String uname) {
-        chatRoom.getUserMap().remove(uname);
-        SseEmitterServer.removeUser(uname);
+        chatService.removeUser(uname);
     }
 }

@@ -23,21 +23,23 @@ public class SseEmitterServer {
     private static Map<String, SseEmitter> sseEmitterMap = new ConcurrentHashMap<>();
 
     public static SseEmitter connect(String employeeCode) {
-        // 设置超时时间，0表示不过期。默认30秒，超过时间未完成会抛出异常：AsyncRequestTimeoutException
+        // 设置超时时间，0表示不过期。
         SseEmitter sseEmitter = new SseEmitter(0L);
-        // 注册回调
         sseEmitter.onCompletion(completionCallBack(employeeCode));
         sseEmitter.onError(errorCallBack(employeeCode));
         sseEmitter.onTimeout(timeoutCallBack(employeeCode));
         sseEmitterMap.put(employeeCode, sseEmitter);
-        // 数量+1
         count.getAndIncrement();
         logger.info("创建新的sse连接，当前用户：{}", employeeCode);
         return sseEmitter;
     }
 
     public static void sendMessage(String employeeCode, String jsonMsg) {
+        if (employeeCode == null || jsonMsg == null) {
+            return;
+        }
         try {
+
             SseEmitter emitter = sseEmitterMap.get(employeeCode);
             if (emitter == null) {
                 logger.warn("sse用户[{}]不在注册表，消息推送失败", employeeCode);
@@ -48,21 +50,6 @@ public class SseEmitterServer {
             logger.error("sse用户[{}]推送异常:{}", employeeCode, e.getMessage());
             removeUser(employeeCode);
         }
-    }
-
-    public static void batchSendMessage(String jsonMsg, List<String> employeeCodes) {
-        employeeCodes.forEach(employeeCode -> sendMessage(jsonMsg, employeeCode));
-    }
-
-    public static void batchSendMessage(String jsonMsg) {
-        sseEmitterMap.forEach((k, v) -> {
-            try {
-                v.send(jsonMsg, MediaType.APPLICATION_JSON);
-            } catch (IOException e) {
-                logger.error("用户[{}]推送异常:{}", k, e.getMessage());
-                removeUser(k);
-            }
-        });
     }
 
     public static void removeUser(String employeeCode) {

@@ -45,6 +45,18 @@ public class RabbitMQConfig {
         return new DirectExchange("direct_exchange");
     }
 
+    //定义队列
+    @Bean
+    public Queue directQueue() {
+        return new Queue("direct_queue");
+    }
+
+    // 绑定队列和交换机
+    @Bean
+    public Binding binding(Queue helloQueue, DirectExchange directExchange) {
+        return BindingBuilder.bind(helloQueue).to(directExchange).with("direct_message");
+    }
+
     // 定义消息转换器
     @Bean
     public MessageConverter jsonMessageConverter() {
